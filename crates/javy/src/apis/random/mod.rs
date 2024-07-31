@@ -1,4 +1,4 @@
-use crate::quickjs::{context::Intrinsic, prelude::Func, qjs, Ctx, Object};
+use crate::{quickjs::{context::Intrinsic, prelude::Func, qjs, Ctx, Object}, serde::err};
 use anyhow::{Error, Result};
 use rquickjs::Function;
 use std::ptr;
@@ -24,24 +24,31 @@ fn register(cx: Ctx) -> Result<()> {
     globals.set(
         "javy_logger",
         Function::new(cx.clone(), |level: String, message: String| {
-            let level_ref = unsafe { write_string(1, &level) };
-            let message_ref = unsafe { write_string(1 + level_ref.1, &message) };
+            let (level_ref, level_size) = unsafe { write_string(1, &level) };
+            let (message_ref, _) = unsafe { write_string(1 + level_size, &message) };
 
-            unsafe { log(level_ref.0, message_ref.0) }
+            unsafe { log(level_ref, message_ref) }
         })
     )?;
 
     Ok::<_, Error>(())
 }
 
-unsafe fn write_string(offset: usize, data: &str) -> (i64, usize) {
+unsafe fn write_string(offset: u32, data: &str) -> (i64, u32) {
     let dest = offset as *mut u8;
     let src = data.as_ptr();
     let len = data.len();
     
     ptr::copy_nonoverlapping(src, dest, len);
+    // ptr::cop
 
-    ((new_reference(5, offset.try_into().unwrap(), len.try_into().unwrap())).try_into().unwrap(), len)
+    let len_u32: u32 = u32::try_from(len).unwrap_or_else(|err| -> u32 {
+        
+        
+        return 0;
+    });
+
+    ((new_reference(5, offset, len.try_into().unwrap())).try_into().unwrap(), len as u32)
 }
 
 fn new_reference(typ: u8, offset: u32, size: u32) -> u64 {
